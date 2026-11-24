@@ -1,0 +1,35 @@
+[workspace]
+resolver = "3"
+members = ["server", "crates/example"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+# Declare every dependency version here; member crates inherit with
+# `name.workspace = true`.
+[workspace.dependencies]
+config = { version = "0.15", default-features = false, features = ["yaml"] }
+example = { path = "crates/example" }
+serde = { version = "1", features = ["derive"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros", "time"] }
+tempfile = "3"
+time = { version = "0.3", features = ["formatting", "parsing", "serde"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+uuid = { version = "1", features = ["v4"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+expect_used = "warn"
+mod_module_files = "warn"
+todo = "warn"
+unimplemented = "warn"
+unwrap_used = "warn"
