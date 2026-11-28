@@ -263,4 +263,54 @@ mod tests {
         evidence.quote = "abd".to_owned();
         assert!(!original.validates(&evidence));
     }
+
+    #[test]
+    fn inspect_and_extract_legible_metadata_and_argument_spans() {
+        let html = r#"<!doctype html>
+<html>
+<head>
+  <meta property="article:published_time" content="2026-11-26">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    "headline": "Gallery Expansion",
+    "datePublished": "2026-11-27",
+    "author": {"@type": "Person", "name": "Ada Lovelace"}
+  }
+  </script>
+</head>
+<body>
+  <div class="sidebar">Navigation Archive 2018-01-01</div>
+  <div class="story">
+    <h1>Gallery Expansion</h1>
+    <p>Northwind Labs announced the new gallery wing in November 2026. The expansion covers 420 square meters of exhibition space and includes a conservation workshop for visiting researchers and archivists.</p>
+    <p>Northwind Labs founded the archive in 2019. The new wing supports 30 kg per shelf.</p>
+  </div>
+</body>
+</html>"#;
+        let inspection = InputFormat::Html.inspect("gallery-story", html).unwrap();
+        let meta = inspection.metadata.unwrap();
+        assert_eq!(meta.title.as_deref(), Some("Gallery Expansion"));
+        assert_eq!(meta.published_at.as_deref(), Some("2026-11-27"));
+        assert_eq!(meta.disagreements.len(), 1);
+
+        let doc = inspection.document.unwrap();
+        assert_eq!(doc.normalizer_version(), "legible-html-v1");
+        assert!(!doc.text().contains("2018-01-01"));
+
+        let extraction = Extractor::new().unwrap().extract(&doc).unwrap();
+        let rels: Vec<_> = extraction
+            .candidates
+            .iter()
+            .filter(|c| matches!(c.value, CandidateValue::Relationship { .. }))
+            .collect();
+        assert!(!rels.is_empty());
+        for rel in rels {
+            let args = rel.argument_evidence.as_ref().unwrap();
+            assert!(doc.validates(&args.subject));
+            assert!(doc.validates(&args.predicate));
+            assert!(doc.validates(&args.object));
+        }
+    }
 }
