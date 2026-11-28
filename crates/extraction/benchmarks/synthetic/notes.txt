@@ -1,0 +1,6 @@
+Test notes
+
+The pump uses 30 kWh.
+The sensor reports temperature.
+The meter stopped on 2026-07-03.
+The gallery may contain a library.

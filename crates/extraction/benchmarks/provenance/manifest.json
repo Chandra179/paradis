@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "snapshots": [
+    {"id": "original", "path": "original.txt", "source_id": "gallery/notice", "attestation_id": "gallery", "captured_at": "2026-11-20T12:00:00Z"},
+    {"id": "original-replay", "path": "original.txt", "source_id": "gallery/notice", "attestation_id": "gallery"},
+    {"id": "exact-copy", "path": "syndicated.html", "source_id": "regional/archive", "copied_from": "original"},
+    {"id": "edited-copy", "path": "reprint.txt", "source_id": "weekly/digest", "copied_from": "exact-copy"},
+    {"id": "audit", "path": "independent-audit.txt", "source_id": "inspector/notes", "attestation_id": "audit"},
+    {"id": "survey", "path": "independent-survey.txt", "source_id": "surveyor/notes", "attestation_id": "survey"},
+    {"id": "correction", "path": "correction.txt", "source_id": "gallery/notice", "supersedes": "original", "captured_at": "2026-11-21T12:00:00Z"},
+    {"id": "unknown-lineage", "path": "independent-survey.txt", "source_id": "mirror/unknown"},
+    {"id": "expired", "path": "expired.txt", "source_id": "archive/expired", "retain_until": "2000-01-01T00:00:00Z"},
+    {"id": "metadata", "path": "metadata-only.txt", "source_id": "archive/metadata-only", "retention": "metadata_only"}
+  ],
+  "review": {
+    "question": "What load limit was reported for the west gallery shelf?",
+    "evidence": [
+      {"snapshot_id": "original", "quote": "3 kg"},
+      {"snapshot_id": "original-replay", "quote": "3 kg"},
+      {"snapshot_id": "exact-copy", "quote": "3 kg"},
+      {"snapshot_id": "edited-copy", "quote": "3 kg"},
+      {"snapshot_id": "audit", "quote": "5 kg"},
+      {"snapshot_id": "survey", "quote": "7 kg"},
+      {"snapshot_id": "correction", "quote": "5 kg"},
+      {"snapshot_id": "unknown-lineage", "quote": "7 kg"},
+      {"snapshot_id": "expired", "quote": "88 kg"},
+      {"snapshot_id": "metadata", "quote": "99 kg"}
+    ]
+  }
+}

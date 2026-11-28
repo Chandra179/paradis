@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:base="https://gallery.example/updates/">
+  <id>urn:gallery:updates</id>
+  <title>Gallery updates</title>
+  <updated>2026-11-28T03:00:00Z</updated>
+  <link rel="next" href="more?page=2"/>
+  <entry xml:base="../notices/">
+    <id>urn:gallery:west-wing</id>
+    <title type="text">Gallery &lt;West&gt; opens on 2026-11-27.</title>
+    <published>2026-11-24T09:00:00Z</published>
+    <updated>2026-11-26T12:00:00Z</updated>
+    <link href="west-wing#hours"/>
+    <link rel="related" href="mailto:contact@gallery.example"/>
+    <summary type="html">&lt;p&gt;The tour lasts 30 minutes.&lt;/p&gt;</summary>
+    <content type="html">&lt;p&gt;The gallery is located in the west wing.&lt;/p&gt;</content>
+  </entry>
+</feed>

@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "name": "synthetic-baseline",
+  "fixtures": [
+    {
+      "path": "article.html",
+      "source_type": "article_html",
+      "reference_text": "Gallery maintenance\n\nThe gallery is located in the west wing.\n\nThe inspection took place on 2 June 2026.\n\nThe new shelves support 30 kg.",
+      "candidates": [
+        {"quote": "The gallery is located in the west wing", "value": {"kind": "relationship", "subject": "The gallery", "predicate": "is located in", "object": "the west wing"}},
+        {"quote": "2 June 2026", "value": {"kind": "date", "iso_date": "2026-06-02"}},
+        {"quote": "30 kg", "value": {"kind": "quantity", "value": "30", "unit": "kg"}}
+      ]
+    },
+    {
+      "path": "notes.txt",
+      "source_type": "plain_text",
+      "reference_text": "Test notes\n\nThe pump uses 30 kWh.\nThe sensor reports temperature.\nThe meter stopped on 2026-07-03.\nThe gallery may contain a library.",
+      "candidates": [
+        {"quote": "The pump uses 30 kWh", "value": {"kind": "relationship", "subject": "The pump", "predicate": "uses", "object": "30 kWh"}},
+        {"quote": "The sensor reports temperature", "value": {"kind": "relationship", "subject": "The sensor", "predicate": "reports", "object": "temperature"}},
+        {"quote": "30 kWh", "value": {"kind": "quantity", "value": "30", "unit": "kWh"}},
+        {"quote": "2026-07-03", "value": {"kind": "date", "iso_date": "2026-07-03"}}
+      ]
+    },
+    {
+      "path": "title.txt",
+      "source_type": "synthetic_title",
+      "reference_text": "Portable battery pack weighs 12 kg",
+      "candidates": [
+        {"quote": "12 kg", "value": {"kind": "quantity", "value": "12", "unit": "kg"}},
+        {"quote": "Portable battery pack weighs 12 kg", "value": {"kind": "relationship", "subject": "Portable battery pack", "predicate": "weighs", "object": "12 kg"}}
+      ]
+    },
+    {
+      "path": "empty.html",
+      "source_type": "application_shell",
+      "reference_text": "",
+      "candidates": []
+    }
+  ]
+}

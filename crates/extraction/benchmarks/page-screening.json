@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "name": "saved-html-page-screening",
+  "inline_format": "html",
+  "fixtures": [
+    {
+      "id": "short-notice",
+      "snapshot_text": "<main><p>Closed 27 November 2026.</p></main>",
+      "source_type": "notice",
+      "reference_text": "Closed 27 November 2026.",
+      "expected_disposition": "accepted"
+    },
+    {
+      "id": "error-documentation",
+      "snapshot_text": "<title>Page not found</title><main><h1>Page not found</h1><p>We couldn't find the page you requested.</p><p>This example shows how to configure a custom error document.</p></main>",
+      "source_type": "documentation",
+      "reference_text": "This example shows how to configure a custom error document.",
+      "expected_disposition": "accepted"
+    },
+    {
+      "id": "article-with-consent-banner",
+      "snapshot_text": "<main><p>The west wing opens on 27 November 2026.</p></main><div role=\"dialog\" aria-modal=\"true\"><h2>Cookie preferences</h2><p>We use cookies.</p><button>Accept all</button><button>Reject all</button></div>",
+      "source_type": "article",
+      "reference_text": "The west wing opens on 27 November 2026.",
+      "expected_disposition": "accepted"
+    },
+    {
+      "id": "client-script-with-content",
+      "snapshot_text": "<main id=\"root\"><p>Collection rooms open at noon.</p></main><script src=\"/client.js\"></script><noscript>Please enable JavaScript to continue.</noscript>",
+      "source_type": "notice",
+      "reference_text": "Collection rooms open at noon.",
+      "expected_disposition": "accepted"
+    },
+    {
+      "id": "domain-market-documentation",
+      "snapshot_text": "<title>Domain for sale</title><main><h1>Domain for sale</h1><p>This domain is for sale.</p><p>Use this template only after your listing goes live.</p></main>",
+      "source_type": "documentation",
+      "reference_text": "Use this template only after your listing goes live.",
+      "expected_disposition": "accepted"
+    },
+    {
+      "id": "legitimate-loading-notice",
+      "snapshot_text": "<main><h1>Loading</h1><p>The loading dock opens at 7 a.m.</p></main>",
+      "source_type": "notice",
+      "reference_text": "The loading dock opens at 7 a.m.",
+      "expected_disposition": "accepted"
+    },
+    {
+      "id": "visible-image-text",
+      "snapshot_text": "<main><img alt=\"Water service restored\" src=\"/notice.png\"></main>",
+      "source_type": "notice",
+      "reference_text": "Water service restored",
+      "expected_disposition": "accepted"
+    },
+    {
+      "id": "short-non-english-notice",
+      "snapshot_text": "<html lang=\"id\"><main><p>Perpustakaan dibuka kembali.</p></main></html>",
+      "source_type": "notice",
+      "reference_text": "Perpustakaan dibuka kembali.",
+      "expected_disposition": "accepted"
+    },
+    {
+      "id": "explicit-soft-404",
+      "snapshot_text": "<title>Page not found</title><main><h1>Page not found</h1><p>We couldn’t find the page you requested.</p></main><nav><a href=\"/\">Home</a></nav>",
+      "source_type": "soft_error",
+      "reference_text": "",
+      "expected_disposition": "skipped",
+      "expected_reason": "likely_soft_404"
+    },
+    {
+      "id": "structured-consent-only",
+      "snapshot_text": "<main><div role=\"dialog\" aria-modal=\"true\"><h2>Cookie preferences</h2><p>We use cookies.</p><button>Accept all</button><button>Reject all</button></div></main>",
+      "source_type": "consent",
+      "reference_text": "",
+      "expected_disposition": "skipped",
+      "expected_reason": "consent_only"
+    },
+    {
+      "id": "parked-domain",
+      "snapshot_text": "<title>Domain for sale</title><main><h1>Domain for sale</h1><p>This domain is for sale.</p></main>",
+      "source_type": "parking",
+      "reference_text": "",
+      "expected_disposition": "skipped",
+      "expected_reason": "likely_parked_domain"
+    },
+    {
+      "id": "missing-body",
+      "snapshot_text": "<!doctype html><html><head><title>Reference</title></head><body><!-- placeholder --></body></html>",
+      "source_type": "empty",
+      "reference_text": "",
+      "expected_disposition": "skipped",
+      "expected_reason": "no_meaningful_html_body"
+    },
+    {
+      "id": "empty-input",
+      "snapshot_text": "",
+      "source_type": "empty",
+      "reference_text": "",
+      "expected_disposition": "skipped",
+      "expected_reason": "empty_input"
+    },
+    {
+      "id": "whitespace-input",
+      "snapshot_text": " \t\n",
+      "source_type": "empty",
+      "reference_text": "",
+      "expected_disposition": "skipped",
+      "expected_reason": "blank_input"
+    },
+    {
+      "id": "empty-js-mount",
+      "snapshot_text": "<main id=\"app\"></main><script type=\"module\" src=\"/bundle.js\"></script>",
+      "source_type": "application_shell",
+      "reference_text": "",
+      "expected_disposition": "uncertain",
+      "expected_reason": "likely_javascript_shell"
+    },
+    {
+      "id": "loading-js-mount",
+      "snapshot_text": "<main id=\"root\"><p>Loading…</p></main><script src=\"/site.js\"></script>",
+      "source_type": "application_shell",
+      "reference_text": "",
+      "expected_disposition": "uncertain",
+      "expected_reason": "likely_javascript_shell"
+    },
+    {
+      "id": "js-noscript-message",
+      "snapshot_text": "<main></main><script src=\"/client.js\"></script><noscript>Please enable JavaScript to continue.</noscript>",
+      "source_type": "application_shell",
+      "reference_text": "",
+      "expected_disposition": "uncertain",
+      "expected_reason": "likely_javascript_shell"
+    },
+    {
+      "id": "unrecognized-soft-error",
+      "snapshot_text": "<title>Something went wrong</title><main><h1>That route has expired</h1><p>Try revisiting our index.</p></main>",
+      "source_type": "soft_error",
+      "reference_text": "",
+      "expected_disposition": "skipped",
+      "expected_reason": "likely_soft_404"
+    }
+  ]
+}

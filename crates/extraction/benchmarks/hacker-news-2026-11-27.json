@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "name": "hacker-news-2026-11-27-top-titles",
+  "source_index": "https://hacker-news.firebaseio.com/v0/topstories.json",
+  "captured_at": "2026-11-27T14:17:33.83948867Z",
+  "fixtures": [
+    {
+      "source_item_id": 50665968,
+      "source_document_version_id": "e6977083a1f6ed03ece6da8b8e662da502b0ffdfd812199e921fdcb8b0405e12",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "A Deterministic Subexponential-Time Algorithm for the Discrete Logarithm Problem [pdf]",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50665920,
+      "source_document_version_id": "24411b3f75111cb80072391389a53d8590313f3de22b0889124c1f7b0cb0b29e",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "Kimi for Science: More scientific ideas, made possible",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50663595,
+      "source_document_version_id": "afc1af147680cdd98fca29584256f03005b51aca11b80c3354930113c87a046f",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "The group chat where your AI talks behind your back",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50660180,
+      "source_document_version_id": "a7699eb2279d33716e6792c7596aca659f6c90d4aff67d1e9d4fae3947c97487",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "AI made self-hosting fun again",
+      "candidates": [
+        {
+          "quote": "AI made self-hosting fun again",
+          "value": {
+            "kind": "relationship",
+            "subject": "AI",
+            "predicate": "made",
+            "object": "self-hosting fun again"
+          }
+        }
+      ]
+    },
+    {
+      "source_item_id": 50666375,
+      "source_document_version_id": "7f31445c5fac4f235b4d30f603fd21752d21ac9a9f65d82949f920430c0623a0",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "US Air Force's cloud computing platform hacked",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50666279,
+      "source_document_version_id": "2f1d18b84fb6790e4faa1d09ecdf3b1a224b1699e87874aa884361c264cd9205",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "New York and California Age Gating Rules Go into Effect in the New Year",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50659841,
+      "source_document_version_id": "94894c7a34cd1fb97d37088446f6b76eb6b88d8dd3066eae65875a9367178a77",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "Kamil Khan Mumtaz: Pakistani architect, admired at home, almost invisible abroad",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50657530,
+      "source_document_version_id": "ea2818c793852153d2baaa13c6f37cf2268beae379b8f45297ce35f4373ca8ba",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "YouTube Ad Punisher – Auto-reloads YouTube pages when an ad plays",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50657265,
+      "source_document_version_id": "5c4b18a530cf454a523d643da348288142a2c3de2f22ec2a8dc27a51303f7bd3",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "AMD-specific fork of llama.cpp",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50661646,
+      "source_document_version_id": "08d11c10e9185901bf48df6c6463775f243121338abb8aa09f485c513d8faa59",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "Hard Drive pricing has gotten bad",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50657645,
+      "source_document_version_id": "51f0b012a502ebf87a0375450d863beb5e85ee142fe955f96ede047c13e3a117",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "CTO of 'RansomwareHelp' indicted for wire fraud",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50653667,
+      "source_document_version_id": "c8a93fb0ea3bd5b1be0b6b888c17f02a68fbd73051e4759aa77c8621cb0c2b2e",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "Intel One Mono font (2023)",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50659640,
+      "source_document_version_id": "b999f5a6020bac635be6c6fc6013e27c686b668a0f62cc5161b6eff863381b7a",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "Company Culture = Slack Emoji ÷ √Headcount",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50663261,
+      "source_document_version_id": "c52b4db56ccdcb293108ad8be3f4d9981f9ef61bae4f7eb029050e2a4ca84c49",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "Buy Nothing Day – Friday November 27th 2026",
+      "candidates": [
+        {
+          "quote": "November 27th 2026",
+          "value": {
+            "kind": "date",
+            "iso_date": "2026-11-27"
+          }
+        }
+      ]
+    },
+    {
+      "source_item_id": 50663089,
+      "source_document_version_id": "aff6b79b325edd2355c2e09ed1b39d5ad42d49b9a72c7b2b965acb80f239c502",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "The need for a formally verifiable mainstream programming language",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50653477,
+      "source_document_version_id": "5dbeb7e9c9ea5918d51a7e9f097a179e7679f23fdb77e5a7a9300fa18a65c703",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "Google Will Make AI Agents Use Its MCP Servers. The Gmail One Can't Send Email",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50666436,
+      "source_document_version_id": "5db02a6b31d975f2153cd0dfe9ca1da4d91a1ba9431b86abaab94f3605e3dd2f",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "Counseling for mental health decreases likelihood of protesting by 34%–39%",
+      "candidates": [
+        {
+          "quote": "34%",
+          "value": {
+            "kind": "quantity",
+            "value": "34",
+            "unit": "%"
+          }
+        },
+        {
+          "quote": "39%",
+          "value": {
+            "kind": "quantity",
+            "value": "39",
+            "unit": "%"
+          }
+        },
+        {
+          "quote": "Counseling for mental health decreases likelihood of protesting by 34%–39%",
+          "value": {
+            "kind": "relationship",
+            "subject": "Counseling for mental health",
+            "predicate": "decreases",
+            "object": "likelihood of protesting by 34%–39%"
+          }
+        }
+      ]
+    },
+    {
+      "source_item_id": 50658498,
+      "source_document_version_id": "ade6f270c09190fcf01c110a8fe6d92ac71d3743b8b312883e784b26146f092f",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "An introduction to uncertainty in machine learning",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50661705,
+      "source_document_version_id": "34dd21d9dc72f66d648890e373c2f7e101234f9dda8183f649688ced36f9a56a",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "The Cutthroat Business of Shipwrecks",
+      "candidates": []
+    },
+    {
+      "source_item_id": 50665732,
+      "source_document_version_id": "6260214778194cd0779a2744f01194d20447f40db1915402ac8affd7a96095e8",
+      "source_type": "hacker_news_title",
+      "snapshot_text": "Pizza history: AI agent's cardless purchase is a first for UK",
+      "candidates": [
+        {
+          "quote": "AI agent's cardless purchase is a first for UK",
+          "value": {
+            "kind": "relationship",
+            "subject": "AI agent's cardless purchase",
+            "predicate": "is",
+            "object": "a first for UK"
+          }
+        }
+      ]
+    }
+  ]
+}

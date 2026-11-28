@@ -7,16 +7,17 @@ WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY server/Cargo.toml server/Cargo.toml
 COPY crates/example/Cargo.toml crates/example/Cargo.toml
-RUN mkdir server/src crates/example/src \
+COPY crates/extraction/Cargo.toml crates/extraction/Cargo.toml
+RUN mkdir server/src crates/example/src crates/extraction/src \
     && echo 'fn main() {}' > server/src/main.rs \
-    && touch crates/example/src/lib.rs \
-    && cargo build --release --locked
+    && touch crates/example/src/lib.rs crates/extraction/src/lib.rs \
+    && cargo build -p lux-server --release --locked
 
 # Cargo decides freshness by mtime and COPY keeps the context's (older)
 # timestamps, so touch the sources to force a rebuild over the stubs.
 COPY . .
-RUN find server/src crates/example/src -type f -name '*.rs' -exec touch {} + \
-    && cargo build --release --locked \
+RUN find server/src crates/example/src crates/extraction/src -type f -name '*.rs' -exec touch {} + \
+    && cargo build -p lux-server --release --locked \
     && strip target/release/lux-server
 
 FROM docker.io/library/debian:bookworm-slim

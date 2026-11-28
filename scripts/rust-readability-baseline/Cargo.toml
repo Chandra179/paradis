@@ -1,0 +1,13 @@
+[package]
+name = "rust-readability-baseline"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# This comparison tool is built independently of the extraction workspace.
+[workspace]
+
+[dependencies]
+dom_smoothie = "=0.20.0"
+legible = "=0.5.1"
+serde_json = "1"

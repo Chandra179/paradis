@@ -1,7 +1,10 @@
 import { Hexagon } from "lucide-react"
 import { NavLink, Outlet } from "react-router-dom"
 
-const navigation = [{ label: "Home", to: "/" }]
+const navigation = [
+  { label: "Home", to: "/" },
+  { label: "Documents", to: "/documents" },
+]
 
 export function AppShell() {
   return (

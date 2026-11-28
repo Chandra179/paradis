@@ -1,17 +1,12 @@
-//! Lux server. For now it loads the configuration and opens the database;
-//! there is no HTTP endpoint yet.
+//! Lux server binary entrypoint.
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
-mod config;
-mod db;
-
 use std::{env, error::Error, path::Path};
 
-use crate::config::Config;
+use lux_server::{app, config::Config, db};
+use tokio::net::TcpListener;
 
-// Returning `Box<dyn Error>` lets `?` pass any error up; Rust prints it and
-// exits with a failure code. `map_err` adds what we were doing at the time.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let environment = app_environment()?;
@@ -22,17 +17,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let pool = db::connect(&config.sqlite.dsn)
         .await
         .map_err(|e| format!("open SQLite database {}: {e}", config.sqlite.dsn))?;
-    // The migrations are embedded in the binary, so a fresh checkout or
-    // container needs no extra tooling.
     db::migrate(&pool)
         .await
         .map_err(|e| format!("apply database migrations: {e}"))?;
 
+    let addr = env::var("LISTEN_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_owned());
+    let listener = TcpListener::bind(&addr)
+        .await
+        .map_err(|e| format!("bind {addr}: {e}"))?;
     println!(
-        "loaded {environment} config; database ready at {}",
+        "lux-server ({environment}) listening on http://{addr}; database {}",
         config.sqlite.dsn
     );
 
+    axum::serve(listener, app(pool.clone())).await?;
     pool.close().await;
     Ok(())
 }
@@ -45,7 +43,6 @@ fn app_environment() -> Result<String, String> {
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "dev".to_owned());
 
-    // The value becomes part of a file name, so keep it to a safe alphabet.
     if !environment
         .bytes()
         .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
