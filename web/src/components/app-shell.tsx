@@ -15,7 +15,7 @@ export function AppShell() {
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Hexagon className="size-4" />
             </span>
-            <span>Lux</span>
+            <span>Paradis</span>
           </NavLink>
 
           <nav className="flex items-center gap-1" aria-label="Main navigation">

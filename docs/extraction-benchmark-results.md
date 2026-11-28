@@ -219,6 +219,8 @@ On the saved corpora (using non-empty Rust-normalized lines):
 
 ## Reproduction
 
+> **Note:** The historical reproduction commands below reference the `paradis-extract` CLI binary and `crates/extraction/tests/provenance.rs`, which were removed in commit `26201d8` when consolidating onto `paradis-server`.
+
 Build the CLI and replay the frozen Hacker News titles:
 
 ```bash

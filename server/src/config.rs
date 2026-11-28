@@ -108,7 +108,7 @@ mod tests {
     #[test]
     fn dev_config_is_valid() {
         let cfg = Config::load_with_overrides(&config_file("config_dev.yaml"), None).unwrap();
-        assert_eq!(cfg.sqlite.dsn, "lux.db");
+        assert_eq!(cfg.sqlite.dsn, "paradis.db");
     }
 
     #[test]
@@ -119,8 +119,8 @@ mod tests {
         let message = err.to_string();
         assert!(message.contains("sqlite.dsn is required"), "{message}");
 
-        let cfg = Config::load_with_overrides(&path, Some("/data/lux.db".to_owned())).unwrap();
-        assert_eq!(cfg.sqlite.dsn, "/data/lux.db");
+        let cfg = Config::load_with_overrides(&path, Some("/data/paradis.db".to_owned())).unwrap();
+        assert_eq!(cfg.sqlite.dsn, "/data/paradis.db");
     }
 
     #[test]

@@ -1,8 +1,8 @@
-//! End-to-end HTTP and SQLite integration tests for `lux-server`.
+//! End-to-end HTTP and SQLite integration tests for `paradis-server`.
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
-use lux_server::{app, db};
+use paradis_server::{app, db};
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 
@@ -128,4 +128,26 @@ async fn health_extract_detail_and_review_round_trip() {
     assert_eq!(restricted["attempt"]["disposition"], "skipped");
     assert_eq!(restricted["attempt"]["reason"], "metadata_only");
     assert!(restricted["document"].is_null());
+
+    let attempts: Value = client
+        .get(format!("{base}/attempts"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(attempts.as_array().unwrap().len(), 2);
+
+    let reviews: Value = client
+        .get(format!("{base}/reviews"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(reviews.as_array().unwrap().len(), 1);
+    assert_eq!(reviews[0]["question"], "Where is the gallery?");
+    assert_eq!(reviews[0]["total_verified"], 1);
 }

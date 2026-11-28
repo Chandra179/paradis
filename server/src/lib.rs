@@ -1,4 +1,4 @@
-//! Lux server library exposing the Axum router and shared configuration/database helpers.
+//! Paradis server library exposing the Axum router and shared configuration/database helpers.
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
@@ -18,9 +18,13 @@ pub fn app(pool: SqlitePool) -> Router {
     Router::new()
         .route("/health", get(routes::health::health))
         .route("/ready", get(routes::health::ready))
+        .route("/attempts", get(routes::documents::list_attempts))
         .route("/documents", get(routes::documents::list))
         .route("/documents/extract", post(routes::documents::extract))
         .route("/documents/{id}", get(routes::documents::get))
-        .route("/reviews", post(routes::documents::review))
+        .route(
+            "/reviews",
+            get(routes::documents::list_reviews).post(routes::documents::review),
+        )
         .with_state(pool)
 }

@@ -4,7 +4,7 @@ NPM ?= npm
 PODMAN ?= podman
 
 APP_ENVIRONMENT ?= dev
-SQLITE_DSN ?= lux.db
+SQLITE_DSN ?= paradis.db
 
 .PHONY: all build run test lint fmt verify migrate-up podman-build \
 	web-install web-dev web-build web-lint web-typecheck
@@ -15,7 +15,7 @@ build:
 	$(CARGO) build --release --locked
 
 run:
-	APP_ENVIRONMENT="$(APP_ENVIRONMENT)" SQLITE_DSN="$(SQLITE_DSN)" $(CARGO) run -p lux-server
+	APP_ENVIRONMENT="$(APP_ENVIRONMENT)" SQLITE_DSN="$(SQLITE_DSN)" $(CARGO) run -p paradis-server
 
 test:
 	$(CARGO) test --workspace
@@ -35,7 +35,7 @@ migrate-up:
 	$(SQLX) migrate run --source server/migrations --database-url "sqlite:$(SQLITE_DSN)?mode=rwc"
 
 podman-build:
-	$(PODMAN) build -t lux-server .
+	$(PODMAN) build -t paradis-server .
 
 web-install:
 	$(NPM) --prefix web ci

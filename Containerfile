@@ -11,30 +11,30 @@ COPY crates/extraction/Cargo.toml crates/extraction/Cargo.toml
 RUN mkdir server/src crates/example/src crates/extraction/src \
     && echo 'fn main() {}' > server/src/main.rs \
     && touch crates/example/src/lib.rs crates/extraction/src/lib.rs \
-    && cargo build -p lux-server --release --locked
+    && cargo build -p paradis-server --release --locked
 
 # Cargo decides freshness by mtime and COPY keeps the context's (older)
 # timestamps, so touch the sources to force a rebuild over the stubs.
 COPY . .
 RUN find server/src crates/example/src crates/extraction/src -type f -name '*.rs' -exec touch {} + \
-    && cargo build -p lux-server --release --locked \
-    && strip target/release/lux-server
+    && cargo build -p paradis-server --release --locked \
+    && strip target/release/paradis-server
 
 FROM docker.io/library/debian:bookworm-slim
 
-RUN groupadd --system lux \
-    && useradd --system --gid lux --no-create-home --shell /usr/sbin/nologin lux \
+RUN groupadd --system paradis \
+    && useradd --system --gid paradis --no-create-home --shell /usr/sbin/nologin paradis \
     && mkdir -p /data \
-    && chown lux:lux /data
+    && chown paradis:paradis /data
 
 WORKDIR /app
-COPY --from=build --chown=lux:lux /src/target/release/lux-server /app/lux-server
-COPY --from=build --chown=lux:lux /src/server/config /app/server/config
+COPY --from=build --chown=paradis:paradis /src/target/release/paradis-server /app/paradis-server
+COPY --from=build --chown=paradis:paradis /src/server/config /app/server/config
 
 ENV APP_ENVIRONMENT=prd \
-    SQLITE_DSN=/data/lux.db
+    SQLITE_DSN=/data/paradis.db
 
 EXPOSE 8080
 VOLUME ["/data"]
-USER lux
-ENTRYPOINT ["/app/lux-server"]
+USER paradis
+ENTRYPOINT ["/app/paradis-server"]

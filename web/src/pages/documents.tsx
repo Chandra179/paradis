@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from "react"
 import {
   extractDocument,
   getDocument,
+  listAttempts,
   listDocuments,
+  listReviews,
   runReview,
   type AttemptSummary,
   type DocumentDetail,
@@ -23,15 +25,85 @@ import {
 const utf8Encoder = new TextEncoder()
 const utf8Decoder = new TextDecoder()
 
-function sliceUtf8(text: string, startByte: number, endByte: number) {
+type TextSegment = {
+  text: string
+  role: "plain" | "match" | "subject" | "predicate" | "object"
+}
+
+type QueuedSelection = {
+  key: string
+  source_id: string
+  document_version_id: string
+  quote: string
+  start_byte: number
+}
+
+function buildHighlightedSegments(
+  text: string,
+  candidate: StoredCandidate,
+): TextSegment[] {
   const bytes = utf8Encoder.encode(text)
-  const safeStart = Math.max(0, Math.min(startByte, bytes.length))
-  const safeEnd = Math.max(safeStart, Math.min(endByte, bytes.length))
-  return {
-    before: utf8Decoder.decode(bytes.slice(0, safeStart)),
-    match: utf8Decoder.decode(bytes.slice(safeStart, safeEnd)),
-    after: utf8Decoder.decode(bytes.slice(safeEnd)),
+  const clamp = (pos: number) => Math.max(0, Math.min(pos, bytes.length))
+  const decode = (start: number, end: number) =>
+    utf8Decoder.decode(bytes.slice(start, end))
+
+  const args = candidate.argument_evidence
+  if (args) {
+    const spans = [
+      {
+        start: clamp(args.subject.start_byte),
+        end: clamp(args.subject.end_byte),
+        role: "subject" as const,
+      },
+      {
+        start: clamp(args.predicate.start_byte),
+        end: clamp(args.predicate.end_byte),
+        role: "predicate" as const,
+      },
+      {
+        start: clamp(args.object.start_byte),
+        end: clamp(args.object.end_byte),
+        role: "object" as const,
+      },
+    ].sort((a, b) => a.start - b.start)
+
+    const segments: TextSegment[] = []
+    let cursor = 0
+    for (const span of spans) {
+      if (span.start > cursor) {
+        segments.push({ text: decode(cursor, span.start), role: "plain" })
+      }
+      if (span.end > span.start) {
+        segments.push({ text: decode(span.start, span.end), role: span.role })
+      }
+      cursor = Math.max(cursor, span.end)
+    }
+    if (cursor < bytes.length) {
+      segments.push({ text: decode(cursor, bytes.length), role: "plain" })
+    }
+    return segments
   }
+
+  const start = clamp(candidate.start_byte)
+  const end = Math.max(start, clamp(candidate.end_byte))
+  return [
+    { text: decode(0, start), role: "plain" },
+    { text: decode(start, end), role: "match" },
+    { text: decode(end, bytes.length), role: "plain" },
+  ]
+}
+
+const roleHighlightClass: Record<Exclude<TextSegment["role"], "plain">, string> = {
+  match: "rounded bg-yellow-300/80 px-0.5 text-foreground",
+  subject: "rounded bg-sky-200 px-0.5 text-foreground",
+  predicate: "rounded bg-amber-200 px-0.5 text-foreground",
+  object: "rounded bg-emerald-200 px-0.5 text-foreground",
+}
+
+const dispositionBadgeClass: Record<AttemptSummary["disposition"], string> = {
+  accepted: "bg-emerald-100 text-emerald-900",
+  skipped: "bg-slate-200 text-slate-800",
+  uncertain: "bg-amber-100 text-amber-900",
 }
 
 export function DocumentsPage() {
@@ -45,34 +117,47 @@ export function DocumentsPage() {
   const [error, setError] = useState<string | null>(null)
   const [lastAttempt, setLastAttempt] = useState<AttemptSummary | null>(null)
 
+  const [attempts, setAttempts] = useState<AttemptSummary[]>([])
   const [documents, setDocuments] = useState<DocumentSummary[]>([])
   const [selectedDoc, setSelectedDoc] = useState<DocumentDetail | null>(null)
   const [selectedCandidate, setSelectedCandidate] =
     useState<StoredCandidate | null>(null)
-  const [reviewResult, setReviewResult] = useState<ReviewResponse | null>(null)
 
-  async function refreshList() {
+  const [reviewQuestion, setReviewQuestion] = useState(
+    "Verify selected claims across sources",
+  )
+  const [reviewQueue, setReviewQueue] = useState<QueuedSelection[]>([])
+  const [reviews, setReviews] = useState<ReviewResponse[]>([])
+  const [reviewing, setReviewing] = useState(false)
+
+  async function refreshAll() {
     try {
-      const rows = await listDocuments()
-      setDocuments(rows)
+      const [docs, attemptRows, reviewRows] = await Promise.all([
+        listDocuments(),
+        listAttempts(),
+        listReviews(),
+      ])
+      setDocuments(docs)
+      setAttempts(attemptRows)
+      setReviews(reviewRows)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load documents")
+      setError(err instanceof Error ? err.message : "Failed to load data")
     }
   }
 
   useEffect(() => {
     let cancelled = false
-    listDocuments()
-      .then((rows) => {
+    Promise.all([listDocuments(), listAttempts(), listReviews()])
+      .then(([docs, attemptRows, reviewRows]) => {
         if (!cancelled) {
-          setDocuments(rows)
+          setDocuments(docs)
+          setAttempts(attemptRows)
+          setReviews(reviewRows)
         }
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Failed to load documents",
-          )
+          setError(err instanceof Error ? err.message : "Failed to load data")
         }
       })
     return () => {
@@ -84,7 +169,6 @@ export function DocumentsPage() {
     event.preventDefault()
     setSubmitting(true)
     setError(null)
-    setReviewResult(null)
     try {
       const response = await extractDocument({
         source_id: sourceId,
@@ -97,7 +181,7 @@ export function DocumentsPage() {
         setSelectedDoc(response.document)
         setSelectedCandidate(response.document.candidates[0] ?? null)
       }
-      await refreshList()
+      await refreshAll()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Extraction failed")
     } finally {
@@ -107,7 +191,6 @@ export function DocumentsPage() {
 
   async function handleSelectDoc(id: string) {
     setError(null)
-    setReviewResult(null)
     try {
       const detail = await getDocument(id)
       setSelectedDoc(detail)
@@ -117,33 +200,51 @@ export function DocumentsPage() {
     }
   }
 
-  async function handleVerifyCandidate(candidate: StoredCandidate) {
+  function handleToggleQueue(cand: StoredCandidate) {
     if (!selectedDoc) return
+    const key = `${selectedDoc.id}:${cand.start_byte}:${cand.quote}`
+    setReviewQueue((prev) =>
+      prev.some((item) => item.key === key)
+        ? prev.filter((item) => item.key !== key)
+        : [
+            ...prev,
+            {
+              key,
+              source_id: selectedDoc.source_id,
+              document_version_id: selectedDoc.id,
+              quote: cand.quote,
+              start_byte: cand.start_byte,
+            },
+          ],
+    )
+  }
+
+  async function handleRunQueuedReview(event: React.FormEvent) {
+    event.preventDefault()
+    if (reviewQueue.length === 0) return
+    setReviewing(true)
     setError(null)
     try {
-      const result = await runReview({
-        question: "Verify selected evidence quote",
-        selections: [
-          {
-            document_version_id: selectedDoc.id,
-            quote: candidate.quote,
-            start_byte: candidate.start_byte,
-          },
-        ],
+      await runReview({
+        question: reviewQuestion,
+        selections: reviewQueue.map((item) => ({
+          document_version_id: item.document_version_id,
+          quote: item.quote,
+          start_byte: item.start_byte,
+        })),
       })
-      setReviewResult(result)
+      setReviewQueue([])
+      await refreshAll()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Review check failed")
+      setError(err instanceof Error ? err.message : "Review failed")
+    } finally {
+      setReviewing(false)
     }
   }
 
-  const highlighted = useMemo(() => {
+  const highlightedSegments = useMemo(() => {
     if (!selectedDoc || !selectedCandidate) return null
-    return sliceUtf8(
-      selectedDoc.normalized_text,
-      selectedCandidate.start_byte,
-      selectedCandidate.end_byte,
-    )
+    return buildHighlightedSegments(selectedDoc.normalized_text, selectedCandidate)
   }, [selectedDoc, selectedCandidate])
 
   return (
@@ -154,7 +255,8 @@ export function DocumentsPage() {
         </h1>
         <p className="text-muted-foreground">
           Submit saved UTF-8 HTML or text snapshots to inspect screening
-          dispositions, normalized text, and UTF-8 byte-offset evidence spans.
+          dispositions, publisher metadata, UTF-8 byte-offset spans, and
+          cross-source review tallies.
         </p>
       </div>
 
@@ -169,7 +271,7 @@ export function DocumentsPage() {
           <CardHeader>
             <CardTitle>Submit Snapshot</CardTitle>
             <CardDescription>
-              Parses saved input locally without network fetches.
+              Parses saved input locally without outbound network fetches.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -193,7 +295,7 @@ export function DocumentsPage() {
                     }
                     value={format}
                   >
-                    <option value="html">HTML (screened + pruned)</option>
+                    <option value="html">HTML (screened + legible)</option>
                     <option value="html_body">HTML body (unpruned)</option>
                     <option value="text">Plain text</option>
                   </select>
@@ -225,9 +327,9 @@ export function DocumentsPage() {
             </form>
 
             {lastAttempt ? (
-              <div className="mt-4 rounded-md border bg-muted/40 p-3 text-xs space-y-1">
+              <div className="mt-4 space-y-1 rounded-md border bg-muted/40 p-3 text-xs">
                 <div>
-                  <span className="font-semibold">Disposition:</span>{" "}
+                  <span className="font-semibold">Last Attempt:</span>{" "}
                   {lastAttempt.disposition}
                   {lastAttempt.reason ? ` (${lastAttempt.reason})` : ""}
                 </div>
@@ -246,7 +348,7 @@ export function DocumentsPage() {
           <CardHeader>
             <CardTitle>Stored Document Versions ({documents.length})</CardTitle>
             <CardDescription>
-              Select a version to inspect its normalized text and candidates.
+              Select a version to inspect normalized text, metadata, and candidates.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -290,80 +392,279 @@ export function DocumentsPage() {
               version {selectedDoc.id} · {selectedDoc.normalizer_version}
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-2">
-              <h2 className="text-sm font-semibold">Normalized Text</h2>
-              <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-3 text-xs leading-relaxed">
-                {highlighted ? (
-                  <>
-                    {highlighted.before}
-                    <mark className="rounded bg-yellow-300/80 px-0.5 text-foreground">
-                      {highlighted.match}
-                    </mark>
-                    {highlighted.after}
-                  </>
-                ) : (
-                  selectedDoc.normalized_text
-                )}
-              </pre>
-            </div>
-
-            <div className="space-y-3">
-              <h2 className="text-sm font-semibold">
-                Candidates ({selectedDoc.candidates.length})
-              </h2>
-              <div className="max-h-96 space-y-2 overflow-y-auto">
-                {selectedDoc.candidates.map((cand) => (
-                  <div
-                    className={`rounded-md border p-3 text-xs space-y-1.5 ${
-                      selectedCandidate?.id === cand.id
-                        ? "border-primary bg-accent/50"
-                        : ""
-                    }`}
-                    key={cand.id}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold uppercase tracking-wide">
-                        {cand.kind} · {cand.rule_id}
-                      </span>
-                      <span className="font-mono text-muted-foreground">
-                        [{cand.start_byte}..{cand.end_byte}]
-                      </span>
-                    </div>
-                    <div className="font-mono text-muted-foreground">
-                      {JSON.stringify(cand.value)}
-                    </div>
-                    <div className="flex gap-2 pt-1">
-                      <Button
-                        onClick={() => setSelectedCandidate(cand)}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        Highlight span
-                      </Button>
-                      <Button
-                        onClick={() => void handleVerifyCandidate(cand)}
-                        size="sm"
-                        type="button"
-                        variant="secondary"
-                      >
-                        Verify in review
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {reviewResult ? (
-                <div className="rounded-md border bg-muted/40 p-3 text-xs">
-                  Verified {reviewResult.total_verified} selection(s):{" "}
-                  <code>{JSON.stringify(reviewResult.tallies)}</code>
+          <CardContent className="space-y-6">
+            {selectedDoc.metadata ? (
+              <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+                <div className="font-semibold">Publisher Metadata</div>
+                <div className="flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground">
+                  {selectedDoc.metadata.title ? (
+                    <span>
+                      <strong className="text-foreground">Title:</strong>{" "}
+                      {selectedDoc.metadata.title} ({selectedDoc.metadata.title_origin})
+                    </span>
+                  ) : null}
+                  {selectedDoc.metadata.published_at ? (
+                    <span>
+                      <strong className="text-foreground">Published:</strong>{" "}
+                      {selectedDoc.metadata.published_at} (
+                      {selectedDoc.metadata.published_origin})
+                    </span>
+                  ) : null}
+                  {selectedDoc.metadata.authors?.length ? (
+                    <span>
+                      <strong className="text-foreground">Authors:</strong>{" "}
+                      {selectedDoc.metadata.authors.join(", ")}
+                    </span>
+                  ) : null}
                 </div>
-              ) : null}
+                {selectedDoc.metadata.disagreements?.length ? (
+                  <div className="pt-1 text-amber-800">
+                    <strong>Metadata disagreements:</strong>{" "}
+                    {selectedDoc.metadata.disagreements
+                      .map(
+                        (d) =>
+                          `${d.field}: ${d.primary_origin}="${d.primary_value}" vs ${d.secondary_origin}="${d.secondary_value}"`,
+                      )
+                      .join("; ")}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold">Normalized Text</h2>
+                  {selectedCandidate?.argument_evidence ? (
+                    <div className="flex gap-2 text-[11px]">
+                      <span className="rounded bg-sky-200 px-1.5 py-0.5">
+                        Subject
+                      </span>
+                      <span className="rounded bg-amber-200 px-1.5 py-0.5">
+                        Predicate
+                      </span>
+                      <span className="rounded bg-emerald-200 px-1.5 py-0.5">
+                        Object
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+                <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-3 text-xs leading-relaxed">
+                  {highlightedSegments
+                    ? highlightedSegments.map((seg, idx) =>
+                        seg.role === "plain" ? (
+                          <span key={idx}>{seg.text}</span>
+                        ) : (
+                          <mark className={roleHighlightClass[seg.role]} key={idx}>
+                            {seg.text}
+                          </mark>
+                        ),
+                      )
+                    : selectedDoc.normalized_text}
+                </pre>
+              </div>
+
+              <div className="space-y-3">
+                <h2 className="text-sm font-semibold">
+                  Candidates ({selectedDoc.candidates.length})
+                </h2>
+                <div className="max-h-96 space-y-2 overflow-y-auto">
+                  {selectedDoc.candidates.map((cand) => {
+                    const queueKey = `${selectedDoc.id}:${cand.start_byte}:${cand.quote}`
+                    const isQueued = reviewQueue.some((item) => item.key === queueKey)
+                    return (
+                      <div
+                        className={`space-y-1.5 rounded-md border p-3 text-xs ${
+                          selectedCandidate?.id === cand.id
+                            ? "border-primary bg-accent/50"
+                            : ""
+                        }`}
+                        key={cand.id}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold uppercase tracking-wide">
+                            {cand.kind} · {cand.rule_id}
+                          </span>
+                          <span className="font-mono text-muted-foreground">
+                            [{cand.start_byte}..{cand.end_byte}]
+                          </span>
+                        </div>
+                        <div className="font-mono text-muted-foreground">
+                          {JSON.stringify(cand.value)}
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <Button
+                            onClick={() => setSelectedCandidate(cand)}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            Highlight span
+                          </Button>
+                          <Button
+                            onClick={() => handleToggleQueue(cand)}
+                            size="sm"
+                            type="button"
+                            variant={isQueued ? "default" : "secondary"}
+                          >
+                            {isQueued ? "Queued for review" : "Add to review"}
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
       ) : null}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Claim Review &amp; Corroboration ({reviewQueue.length} queued)
+            </CardTitle>
+            <CardDescription>
+              Queue quotes across one or more documents to verify byte spans and
+              tally unique source support.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form className="space-y-3" onSubmit={handleRunQueuedReview}>
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium">Review Question</span>
+                <input
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  onChange={(e) => setReviewQuestion(e.target.value)}
+                  required
+                  value={reviewQuestion}
+                />
+              </label>
+
+              {reviewQueue.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Select candidates above with &ldquo;Add to review&rdquo; to
+                  verify them together.
+                </p>
+              ) : (
+                <div className="max-h-40 space-y-1.5 overflow-y-auto">
+                  {reviewQueue.map((item) => (
+                    <div
+                      className="flex items-center justify-between rounded border px-2.5 py-1.5 text-xs"
+                      key={item.key}
+                    >
+                      <span className="truncate">
+                        <strong>{item.source_id}:</strong> &ldquo;{item.quote}&rdquo;
+                      </span>
+                      <button
+                        className="ml-2 text-muted-foreground hover:text-foreground"
+                        onClick={() =>
+                          setReviewQueue((prev) =>
+                            prev.filter((q) => q.key !== item.key),
+                          )
+                        }
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button
+                disabled={reviewing || reviewQueue.length === 0}
+                type="submit"
+              >
+                {reviewing ? "Verifying..." : "Verify & Save Review"}
+              </Button>
+            </form>
+
+            {reviews.length > 0 ? (
+              <div className="space-y-2 border-t pt-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Saved Reviews ({reviews.length})
+                </h3>
+                <div className="max-h-56 space-y-2 overflow-y-auto">
+                  {reviews.map((rev) => (
+                    <div className="rounded-md border p-2.5 text-xs space-y-1" key={rev.id}>
+                      <div className="flex items-center justify-between font-medium">
+                        <span>{rev.question}</span>
+                        <span className="text-muted-foreground">
+                          {rev.total_verified} verified
+                        </span>
+                      </div>
+                      <div className="font-mono text-muted-foreground">
+                        tallies: {JSON.stringify(rev.tallies)}
+                      </div>
+                      {rev.unresolved.length > 0 ? (
+                        <div className="text-destructive">
+                          unresolved: {rev.unresolved.join("; ")}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Acquisition Attempts ({attempts.length})</CardTitle>
+            <CardDescription>
+              Audit log of accepted, skipped, uncertain, and metadata-only inputs.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {attempts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No acquisition attempts recorded yet.
+              </p>
+            ) : (
+              <div className="max-h-96 space-y-2 overflow-y-auto">
+                {attempts.map((attempt) => (
+                  <div
+                    className="rounded-md border p-3 text-xs space-y-1"
+                    key={attempt.id}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">
+                        {attempt.source_id} ({attempt.format})
+                      </span>
+                      <span
+                        className={`rounded px-2 py-0.5 font-medium ${dispositionBadgeClass[attempt.disposition]}`}
+                      >
+                        {attempt.disposition}
+                        {attempt.reason ? `: ${attempt.reason}` : ""}
+                      </span>
+                    </div>
+                    {attempt.page_screening?.signals.length ? (
+                      <div className="text-muted-foreground">
+                        signals: {attempt.page_screening.signals.join(", ")}
+                      </div>
+                    ) : null}
+                    {attempt.document_version_id ? (
+                      <button
+                        className="font-mono text-primary hover:underline"
+                        onClick={() =>
+                          void handleSelectDoc(attempt.document_version_id!)
+                        }
+                        type="button"
+                      >
+                        Inspect version {attempt.document_version_id.slice(0, 16)}…
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

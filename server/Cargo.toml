@@ -1,13 +1,13 @@
 [package]
-name = "lux-server"
-description = "Lux server"
+name = "paradis-server"
+description = "Paradis server"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "lux-server"
+name = "paradis-server"
 path = "src/main.rs"
 
 [dependencies]

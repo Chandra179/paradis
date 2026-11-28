@@ -7,9 +7,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
-use extraction::{
-    CandidateValue, DocumentMetadata, Extractor, InputFormat, PageDecision, PageScreening,
-};
+use extraction::{CandidateValue, Extractor, InputFormat, PageDecision, PageScreening};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{FromRow, SqlitePool};
@@ -54,6 +52,8 @@ pub struct AttemptSummary {
     pub metadata: Option<Value>,
     /// Whether retention was restricted to metadata only.
     pub metadata_only: bool,
+    /// UTC creation timestamp.
+    pub created_at: String,
 }
 
 /// Stored document version summary for list views.
@@ -113,6 +113,8 @@ pub struct DocumentDetail {
     pub normalized_text: String,
     /// UTC creation timestamp.
     pub created_at: String,
+    /// Local HTML metadata from the linked attempt, when available.
+    pub metadata: Option<Value>,
     /// Stored candidates in document order.
     pub candidates: Vec<StoredCandidate>,
 }
@@ -146,8 +148,8 @@ pub struct ReviewRequest {
     pub selections: Vec<ReviewSelection>,
 }
 
-/// Verified item in `POST /reviews`.
-#[derive(Debug, Serialize)]
+/// Verified item in `POST /reviews` and `GET /reviews`.
+#[derive(Debug, Deserialize, Serialize)]
 pub struct VerifiedSelection {
     /// Document version ID.
     pub document_version_id: String,
@@ -161,9 +163,11 @@ pub struct VerifiedSelection {
     pub end_byte: usize,
 }
 
-/// Response for `POST /reviews`.
+/// Persisted response for `POST /reviews` and `GET /reviews`.
 #[derive(Debug, Serialize)]
 pub struct ReviewResponse {
+    /// Review UUID.
+    pub id: String,
     /// Review question.
     pub question: String,
     /// Number of verified selections.
@@ -174,6 +178,8 @@ pub struct ReviewResponse {
     pub verified: Vec<VerifiedSelection>,
     /// Selection failures or ambiguous quotes.
     pub unresolved: Vec<String>,
+    /// UTC creation timestamp.
+    pub created_at: String,
 }
 
 #[derive(FromRow)]
@@ -200,12 +206,43 @@ struct CandidateRow {
     argument_evidence_json: Option<String>,
 }
 
+#[derive(FromRow)]
+struct AttemptRow {
+    id: String,
+    source_id: String,
+    format: String,
+    disposition: String,
+    reason: Option<String>,
+    document_version_id: Option<String>,
+    page_screening_json: Option<String>,
+    metadata_json: Option<String>,
+    metadata_only: i64,
+    created_at: String,
+}
+
+#[derive(FromRow)]
+struct ReviewRow {
+    id: String,
+    question: String,
+    total_verified: i64,
+    tallies_json: String,
+    verified_json: String,
+    unresolved_json: String,
+    created_at: String,
+}
+
+fn parse_optional_json(raw: Option<&str>) -> Result<Option<Value>, AppError> {
+    raw.map(serde_json::from_str)
+        .transpose()
+        .map_err(|_| AppError::Internal)
+}
+
 /// Extracts and persists a saved UTF-8 snapshot respecting `metadata_only`.
 pub async fn extract(
     State(pool): State<SqlitePool>,
     Json(payload): Json<ExtractRequest>,
 ) -> Result<(StatusCode, Json<ExtractResponse>), AppError> {
-    let source_id = payload.source_id.trim();
+    let source_id = payload.source_id.trim().to_owned();
     if source_id.is_empty() {
         return Err(AppError::BadRequest("source_id is required"));
     }
@@ -219,9 +256,32 @@ pub async fn extract(
         _ => return Err(AppError::BadRequest("unsupported format")),
     };
 
-    let inspection = format
-        .inspect(source_id, &payload.content)
-        .map_err(|_| AppError::BadRequest("invalid input content"))?;
+    let content = payload.content;
+    let metadata_only = payload.metadata_only;
+    let source_id_task = source_id.clone();
+    let (inspection, extraction) = tokio::task::spawn_blocking(move || {
+        let inspection = format
+            .inspect(&source_id_task, &content)
+            .map_err(|_| AppError::BadRequest("invalid input content"))?;
+        let extraction = if !metadata_only
+            && let Some(doc) = inspection.document.as_ref()
+            && !matches!(
+                inspection
+                    .page_screening
+                    .as_ref()
+                    .map(PageScreening::decision),
+                Some(PageDecision::Skipped(_) | PageDecision::Uncertain(_))
+            ) {
+            let extractor = Extractor::new().map_err(|_| AppError::Internal)?;
+            Some(extractor.extract(doc).map_err(|_| AppError::Internal)?)
+        } else {
+            None
+        };
+        Ok::<_, AppError>((inspection, extraction))
+    })
+    .await
+    .map_err(|_| AppError::Internal)??;
+
     let screening_json = inspection
         .page_screening
         .as_ref()
@@ -238,7 +298,7 @@ pub async fn extract(
     let (disposition, reason) = decide_disposition(
         inspection.page_screening.as_ref(),
         inspection.document.is_some(),
-        payload.metadata_only,
+        metadata_only,
     );
 
     let attempt_id = Uuid::new_v4().to_string();
@@ -246,11 +306,9 @@ pub async fn extract(
     let mut doc_id_for_attempt: Option<String> = None;
 
     if disposition == "accepted"
-        && !payload.metadata_only
-        && let Some(doc) = inspection.document.as_ref()
+        && !metadata_only
+        && let (Some(doc), Some(extraction)) = (inspection.document.as_ref(), extraction.as_ref())
     {
-        let extractor = Extractor::new().map_err(|_| AppError::Internal)?;
-        let extraction = extractor.extract(doc).map_err(|_| AppError::Internal)?;
         let doc_id = doc.id().to_owned();
         doc_id_for_attempt = Some(doc_id.clone());
 
@@ -346,6 +404,7 @@ pub async fn extract(
             normalized_text_sha256: doc.normalized_text_sha256().to_owned(),
             normalized_text: doc.text().to_owned(),
             created_at,
+            metadata: metadata_json.clone(),
             candidates: stored_candidates,
         });
     }
@@ -367,35 +426,73 @@ pub async fn extract(
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&attempt_id)
-    .bind(source_id)
+    .bind(&source_id)
     .bind(&payload.format)
     .bind(disposition)
     .bind(reason)
     .bind(&doc_id_for_attempt)
     .bind(&screening_text)
     .bind(&metadata_text)
-    .bind(i64::from(payload.metadata_only))
+    .bind(i64::from(metadata_only))
     .execute(&pool)
     .await?;
 
-    let _ = DocumentMetadata::default();
+    let attempt_created_at: String =
+        sqlx::query_scalar("SELECT created_at FROM acquisition_attempts WHERE id = ?")
+            .bind(&attempt_id)
+            .fetch_one(&pool)
+            .await?;
+
     Ok((
         StatusCode::CREATED,
         Json(ExtractResponse {
             attempt: AttemptSummary {
                 id: attempt_id,
-                source_id: source_id.to_owned(),
+                source_id,
                 format: payload.format,
                 disposition: disposition.to_owned(),
                 reason: reason.map(str::to_owned),
                 document_version_id: doc_id_for_attempt,
                 page_screening: screening_json,
                 metadata: metadata_json,
-                metadata_only: payload.metadata_only,
+                metadata_only,
+                created_at: attempt_created_at,
             },
             document: stored_doc,
         }),
     ))
+}
+
+/// Lists recent acquisition attempts ordered newest first.
+pub async fn list_attempts(
+    State(pool): State<SqlitePool>,
+) -> Result<Json<Vec<AttemptSummary>>, AppError> {
+    let rows = sqlx::query_as::<_, AttemptRow>(
+        "SELECT id, source_id, format, disposition, reason, document_version_id, \
+         page_screening_json, metadata_json, metadata_only, created_at \
+         FROM acquisition_attempts \
+         ORDER BY created_at DESC, rowid DESC \
+         LIMIT 50",
+    )
+    .fetch_all(&pool)
+    .await?;
+
+    let mut attempts = Vec::with_capacity(rows.len());
+    for row in rows {
+        attempts.push(AttemptSummary {
+            id: row.id,
+            source_id: row.source_id,
+            format: row.format,
+            disposition: row.disposition,
+            reason: row.reason,
+            document_version_id: row.document_version_id,
+            page_screening: parse_optional_json(row.page_screening_json.as_deref())?,
+            metadata: parse_optional_json(row.metadata_json.as_deref())?,
+            metadata_only: row.metadata_only != 0,
+            created_at: row.created_at,
+        });
+    }
+    Ok(Json(attempts))
 }
 
 /// Lists stored document versions ordered newest first.
@@ -458,6 +555,16 @@ pub async fn get(
         });
     }
 
+    let metadata_raw: Option<String> = sqlx::query_scalar(
+        "SELECT metadata_json FROM acquisition_attempts \
+         WHERE document_version_id = ? AND metadata_json IS NOT NULL \
+         ORDER BY created_at DESC, rowid DESC LIMIT 1",
+    )
+    .bind(&id)
+    .fetch_optional(&pool)
+    .await?;
+    let metadata = parse_optional_json(metadata_raw.as_deref())?;
+
     Ok(Json(DocumentDetail {
         id: row.id,
         source_id: row.source_id,
@@ -466,6 +573,7 @@ pub async fn get(
         normalized_text_sha256: row.normalized_text_sha256,
         normalized_text: row.normalized_text,
         created_at: row.created_at,
+        metadata,
         candidates,
     }))
 }
@@ -547,13 +655,73 @@ pub async fn review(
         });
     }
 
+    let review_id = Uuid::new_v4().to_string();
+    let total_verified = verified.len();
+    let total_verified_i64 = i64::try_from(total_verified).map_err(|_| AppError::Internal)?;
+    let tallies_json = serde_json::to_string(&tallies).map_err(|_| AppError::Internal)?;
+    let verified_json = serde_json::to_string(&verified).map_err(|_| AppError::Internal)?;
+    let unresolved_json = serde_json::to_string(&unresolved).map_err(|_| AppError::Internal)?;
+
+    sqlx::query(
+        "INSERT INTO reviews (id, question, total_verified, tallies_json, verified_json, unresolved_json) \
+         VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind(&review_id)
+    .bind(&payload.question)
+    .bind(total_verified_i64)
+    .bind(&tallies_json)
+    .bind(&verified_json)
+    .bind(&unresolved_json)
+    .execute(&pool)
+    .await?;
+
+    let created_at: String = sqlx::query_scalar("SELECT created_at FROM reviews WHERE id = ?")
+        .bind(&review_id)
+        .fetch_one(&pool)
+        .await?;
+
     Ok(Json(ReviewResponse {
+        id: review_id,
         question: payload.question,
-        total_verified: verified.len(),
+        total_verified,
         tallies,
         verified,
         unresolved,
+        created_at,
     }))
+}
+
+/// Lists recent persisted evidence reviews ordered newest first.
+pub async fn list_reviews(
+    State(pool): State<SqlitePool>,
+) -> Result<Json<Vec<ReviewResponse>>, AppError> {
+    let rows = sqlx::query_as::<_, ReviewRow>(
+        "SELECT id, question, total_verified, tallies_json, verified_json, unresolved_json, created_at \
+         FROM reviews ORDER BY created_at DESC, rowid DESC LIMIT 50",
+    )
+    .fetch_all(&pool)
+    .await?;
+
+    let mut reviews = Vec::with_capacity(rows.len());
+    for row in rows {
+        let total_verified = usize::try_from(row.total_verified).map_err(|_| AppError::Internal)?;
+        let tallies: BTreeMap<String, usize> =
+            serde_json::from_str(&row.tallies_json).map_err(|_| AppError::Internal)?;
+        let verified: Vec<VerifiedSelection> =
+            serde_json::from_str(&row.verified_json).map_err(|_| AppError::Internal)?;
+        let unresolved: Vec<String> =
+            serde_json::from_str(&row.unresolved_json).map_err(|_| AppError::Internal)?;
+        reviews.push(ReviewResponse {
+            id: row.id,
+            question: row.question,
+            total_verified,
+            tallies,
+            verified,
+            unresolved,
+            created_at: row.created_at,
+        });
+    }
+    Ok(Json(reviews))
 }
 
 fn decide_disposition(

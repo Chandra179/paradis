@@ -1,4 +1,5 @@
 import { ArrowRight, Boxes, Code2, Server } from "lucide-react"
+import { Link } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,17 +14,17 @@ const foundations = [
   {
     icon: Code2,
     title: "React + Vite",
-    description: "Fast local development with a type-safe React foundation.",
+    description: "Fast local inspection of normalized text, metadata, and evidence spans.",
   },
   {
     icon: Boxes,
-    title: "shadcn/ui",
-    description: "Composable interface primitives that stay in your codebase.",
+    title: "Evidence Provenance",
+    description: "Every candidate and review tally anchors to UTF-8 byte offsets.",
   },
   {
     icon: Server,
-    title: "Go API",
-    description: "A typed API layer is ready for the Lux server endpoints.",
+    title: "Rust API",
+    description: "Snapshot screening, extraction, and SQLite persistence via paradis-server.",
   },
 ]
 
@@ -31,16 +32,18 @@ export function HomePage() {
   return (
     <div className="space-y-10">
       <section className="max-w-3xl space-y-5">
-        <p className="text-sm font-medium text-primary">Lux platform</p>
+        <p className="text-sm font-medium text-primary">Paradis workbench</p>
         <h1 className="text-4xl font-semibold tracking-tight sm:text-6xl">
-          A bright foundation for building with clarity.
+          Evidence-backed extraction &amp; claim review.
         </h1>
         <p className="max-w-2xl text-lg text-muted-foreground">
-          The Lux frontend is ready for pages, reusable components, and a typed
-          connection to the Go server.
+          Submit HTML or text snapshots, inspect screening dispositions and publisher
+          metadata, and verify corroborating quotes against versioned documents.
         </p>
-        <Button>
-          Start building <ArrowRight className="size-4" />
+        <Button asChild>
+          <Link to="/documents">
+            Open Documents Workbench <ArrowRight className="size-4" />
+          </Link>
         </Button>
       </section>
 

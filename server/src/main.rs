@@ -1,10 +1,10 @@
-//! Lux server binary entrypoint.
+//! Paradis server binary entrypoint.
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 use std::{env, error::Error, path::Path};
 
-use lux_server::{app, config::Config, db};
+use paradis_server::{app, config::Config, db};
 use tokio::net::TcpListener;
 
 #[tokio::main]
@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await
         .map_err(|e| format!("bind {addr}: {e}"))?;
     println!(
-        "lux-server ({environment}) listening on http://{addr}; database {}",
+        "paradis-server ({environment}) listening on http://{addr}; database {}",
         config.sqlite.dsn
     );
 
